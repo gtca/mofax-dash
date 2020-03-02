@@ -1,0 +1,33 @@
+html, body {
+	height: 100%;
+	width: 100%;
+	background-color: #F2F2F2;
+}
+
+#content {
+	max-width: 90%;
+	margin: 0 auto;
+
+	#header {
+		margin: 3em 0;
+
+		#header-title, #header-subtitle {
+			text-align: center;
+		}
+		#header-title {
+			margin-bottom: 0;
+		}
+		#header-subtitle {
+			font-size: 1.2em;
+			color: #555555;
+		}
+	}
+}
+
+footer {
+	text-align: center;
+
+	a {
+		text-decoration: none;
+	}
+}

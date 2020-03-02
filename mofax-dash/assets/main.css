@@ -1,0 +1,32 @@
+html, body {
+  height: 100%;
+  width: 100%;
+  background-color: #F2F2F2;
+}
+
+#content {
+  max-width: 90%;
+  margin: 0 auto;
+}
+#content #header {
+  margin: 3em 0;
+}
+#content #header #header-title, #content #header #header-subtitle {
+  text-align: center;
+}
+#content #header #header-title {
+  margin-bottom: 0;
+}
+#content #header #header-subtitle {
+  font-size: 1.2em;
+  color: #555555;
+}
+
+footer {
+  text-align: center;
+}
+footer a {
+  text-decoration: none;
+}
+
+/*# sourceMappingURL=main.css.map */
