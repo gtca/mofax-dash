@@ -23,21 +23,68 @@ html, body {
 }
 
 .card {
-  display: inline-block;
   border-radius: 1em;
   background: #ffffff;
   box-shadow: 14px 14px 27px #cecece, -14px -14px 27px #ffffff;
   min-width: 100px;
   min-height: 100px;
   padding: 1em;
-  margin: 1em;
-  width: 50%;
+  z-index: 100;
 }
 .card .card-maintext {
   font-size: 1.5em;
+  font-family: "Avenir Next", Avenir, "Helvetica Neue", sans;
+  font-weight: 600;
+  color: #555555;
 }
 .card .card-subtext {
   font-size: 1em;
+}
+
+.card-small {
+  width: 10%;
+}
+
+#overview #cardboard {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-gap: 1em;
+  grid-auto-rows: minmax(100px, auto);
+}
+#overview #cardboard .card {
+  width: auto;
+}
+#overview #cardboard #card-dim-n {
+  grid-column: 7/9;
+  grid-row: 1;
+}
+#overview #cardboard #card-dim-d {
+  grid-column: 9/11;
+  grid-row: 1;
+}
+#overview #cardboard #card-dim-k {
+  grid-column: 11/13;
+  grid-row: 1;
+}
+#overview #cardboard #card-settings {
+  grid-column: 1/7;
+  grid-row: 1/7;
+  background-color: #999999;
+}
+#overview #cardboard #card-r2 {
+  grid-column: 7/13;
+  grid-row: 2/7;
+  height: auto;
+}
+#overview #cardboard #card-factors {
+  grid-column: 1/7;
+  grid-row: 7/13;
+  height: auto;
+}
+#overview #cardboard #card-factors-violin {
+  grid-column: 7/13;
+  grid-row: 7/13;
+  height: auto;
 }
 
 footer {
