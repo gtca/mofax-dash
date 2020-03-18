@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 
 from os import path
-from sys import argv
+from sys import argv, exit
 from contextlib import ExitStack
 from functools import partial
 import base64
@@ -209,7 +209,7 @@ def update_factors(contents, filename):
                     'title': "Factor2",
                 },
             }
-        })
+        }, style={'width': '100%'})
         return fig
 
 app.callback(Output('card-factors', 'children'),
@@ -332,12 +332,8 @@ if __name__ == '__main__':
         # # Use ExitStack to defer model.close()
         # with ExitStack() as stack:
         #     stack.callback(model.close())
-
-    # else:
-    #     app.callback(Output('output-data-upload', 'children'),
-    #                  [Input('upload-data', 'contents')],
-    #                  [State('upload-data', 'filename')])
-
+    else:
+        print("Please provide an .hdf5 with a trained MOFA+ model")
+        # exit(1)
     app.run_server(debug=True)
-
     
