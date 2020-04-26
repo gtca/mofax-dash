@@ -9,7 +9,7 @@ See [more on MOFA+ here](https://github.com/biofam/MOFA2/). See [more on Dash ap
 ### Installation
 
 ```
-pip install git+https://github.com/gtca/mofax
+pip install git+https://github.com/gtca/mofax-dash
 ```
 
 ### Launching
