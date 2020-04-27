@@ -25,7 +25,7 @@ html, body {
 .card {
   border-radius: 1em;
   background: #ffffff;
-  box-shadow: 14px 14px 27px #cecece, -14px -14px 27px #ffffff;
+  box-shadow: 7px 7px 15px #cecece, -7px -7px 15px #ffffff;
   min-width: 100px;
   min-height: 100px;
   padding: 1em;
