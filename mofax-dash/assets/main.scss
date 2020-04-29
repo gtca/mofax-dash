@@ -118,6 +118,24 @@ html, body {
 	}
 }
 
+#card-factors {
+	display: flex;
+	flex-direction: column;
+
+	#plot-factors-scatter {
+		flex-grow: 1;
+	}
+
+	#card-factors-selectors {
+		display: flex;
+		flex-direction: row;
+		>div {
+			flex: 1;
+			margin: .1em;
+		}
+	}
+}
+
 footer {
 	text-align: center;
 

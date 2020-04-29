@@ -37,6 +37,8 @@ if __name__ == '__main__':
         model = mfx.mofa_model(filename)
         model_filename = filename
 
+        model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
+
         # Number of factors explaining more than 1% of variance 
         # to be reused later for better default view
         signif_k = 0
@@ -98,50 +100,63 @@ def update_k(model):
         return make_card_children(dim_k, "factors", "incl.", signif_k, "factor", more="with R2>1%")
 
 
-def update_factors(model):
+def update_factors(factor_x, factor_y, highlight):
+    factors = list(set([factor_x, factor_y]))
     if model is not None:
-        df = model.get_factors(factors=[0, 1], df=True)
+        df = model.get_factors(factors=factors, df=True).join(model.metadata)
         fig = dcc.Graph(id="factors-plot-scatter", figure={
             'data': [
                 {
-                    'x': df["Factor1"],
-                    'y': df["Factor2"],
+                    'x': df[factor_x],
+                    'y': df[factor_y],
                     'mode': 'markers',
                     'marker': {'size': 10, 'opacity': .5}
                 }
+            ] if highlight is None else [
+                {
+                    'x': df[df[highlight] == i][factor_x],
+                    'y': df[df[highlight] == i][factor_y],
+                    'text': df[df[highlight] == i][highlight],
+                    'mode': 'markers',
+                    'marker': {'size': 10, 'opacity': .5},
+                    'name': i
+                } for i in df[highlight].unique()
             ],
             'layout': {
                 'clickmode': 'event+select',
                 'xaxis': {
-                    'title': "Factor1",
+                    'title': factor_x,
                 },
                 'yaxis': {
-                    'title': "Factor2",
+                    'title': factor_y,
                 },
                 'margin': {
                     'l': 40,
-                    'r': 20,
+                    'r': 10,
                     'b': 40,
-                    't': 20,
+                    't': 10,
                 }
             }
         }, style={
             'width': '100%',
             'height': '100%',
             'margin': 0,
+            'margin-bottom': 20,
             'padding': 0,
         })
+
         return fig
 
 
 
-def update_factors_violin(factors):
+def update_factors_violin(factors, highlight):
     if factors is not None and (factors == -1 or -1 in factors): factors = None
     if model is not None:
         df = model.get_factors(factors=factors, df=True)\
                   .rename_axis("Sample")\
                   .reset_index()\
                   .melt(var_name="Factor", value_name="Value", id_vars=["Sample"])
+        df = df.set_index("Sample").join(model.metadata).rename_axis("Sample").reset_index()
         fig = dcc.Graph(id="factors-plot-violin", figure={
             'data': [
                 {   
@@ -151,6 +166,14 @@ def update_factors_violin(factors):
                     'text': df['Sample']
                     # 'points': 'all'
                 }
+            ] if highlight is None else [
+                {
+                    'type': 'violin',
+                    'x': df[df[highlight] == i]["Factor"],
+                    'y': df[df[highlight] == i]["Value"],
+                    'text': df[df[highlight] == i][highlight],
+                    'name': i
+                } for i in df[highlight].unique()
             ],
             'layout': {
                 'clickmode': 'event+select',
@@ -162,9 +185,9 @@ def update_factors_violin(factors):
                 },
                 'margin': {
                     'l': 100,
-                    'r': 20,
+                    'r': 10,
                     'b': 50,
-                    't': 20,
+                    't': 10,
                 }
             }
         }, style={
@@ -189,9 +212,9 @@ def update_r2(groups, views, factors):
         fig = dcc.Graph(id="r2-plot", figure={
             'data': [
                 go.Heatmap(
-                    x= df["Group"],
-                    y= df["Factor"],
-                    z= df["R2"],
+                    x=df["Group"],
+                    y=df["Factor"],
+                    z=df["R2"],
                     colorscale='Purples',
                 )
             ],
@@ -205,9 +228,9 @@ def update_r2(groups, views, factors):
                 },
                 'margin': {
                     'l': 100,
-                    'r': 20,
+                    'r': 10,
                     'b': 50,
-                    't': 20,
+                    't': 10,
                 }
             }
         }, style={
@@ -250,30 +273,6 @@ card_dim_d = html.Div(id="card-dim-d", className="card card-small", children=upd
 card_dim_k = html.Div(id="card-dim-k", className="card card-small", children=update_k(model))
 
 card_settings = html.Div(id="card-settings", className="card", children=[
-    html.Div(id="settings-subset", className="settings-row", children=[
-        html.Div(children=[
-            html.Span('Views'),
-            dcc.Dropdown(
-                id="views-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': m, 'value': m} for m in model.views],
-                value=-1,
-                multi=True,
-                ),
-            ],
-        ),
-
-        html.Div(children=[
-            html.Span('Groups'),
-            dcc.Dropdown(
-                id="groups-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
-                value=-1,
-                multi=True,
-                ),
-            ],
-        ),
-    ]),
-    
     html.Div(className="settings-row", children=[ 
         html.Div(children=[
             html.Span('Factors'),
@@ -286,14 +285,78 @@ card_settings = html.Div(id="card-settings", className="card", children=[
             ],
         ),
     ]),
+
+    html.Div(id="settings-subset", className="settings-row", children=[
+        html.Div(children=[
+            html.Span('Groups'),
+            dcc.Dropdown(
+                id="groups-selection",
+                options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
+                value=-1,
+                multi=True,
+                ),
+            ],
+        ),
+
+        html.Div(children=[
+            html.Span('Views'),
+            dcc.Dropdown(
+                id="views-selection",
+                options=[{'label': "All", 'value': -1}] + [{'label': m, 'value': m} for m in model.views],
+                value=-1,
+                multi=True,
+                ),
+            ],
+        ),
+    ]),
+
+    html.Div(className="settings-row", children=[
+        html.Div(children=[
+            html.Span('Highlight cells'),
+            dcc.Dropdown(
+                id="cells-highlight-selection",
+                options=[{'label': k, 'value': k} for k in model.metadata.columns.values],
+                value=None,
+                multi=False,
+                ),
+            ],
+        ),
+
+        html.Div(children=[
+            html.Span('Highlight features'),
+            dcc.Dropdown(
+                id="features-highlight-selection",
+                options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
+                value=None,
+                multi=False,
+                ),
+            ],
+        ),
+    ]),
 ])
 
 card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
 
 
-card_factors = html.Div(id="card-factors", className="card", children=[update_factors(model)])
+card_factors = html.Div(id="card-factors", className="card", children=[
+    html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
+    html.Div(id="card-factors-selectors", children = [
+        dcc.Dropdown(
+          id="factors-scatter-x",
+          options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
+          value="Factor1",
+          multi=False,
+        ),
+        dcc.Dropdown(
+              id="factors-scatter-y",
+              options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
+              value="Factor2",
+              multi=False,
+        )
+        ])
+    ])
 
-card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None)])
+card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
 
 cards = html.Div(id="cardboard", children=[card_dim_n, card_dim_d, card_dim_k, card_settings, card_r2, card_factors, card_factors_violin])
 
@@ -362,7 +425,14 @@ app.callback(Output('card-r2', 'children'),
 
 
 app.callback(Output('card-factors-violin', 'children'),
-    [Input('factors-selection', 'value')])(update_factors_violin)
+    [Input('factors-selection', 'value'),
+     Input('cells-highlight-selection', 'value')])(update_factors_violin)
+
+
+app.callback(Output('plot-factors-scatter', 'children'),
+    [Input('factors-scatter-x', 'value'),
+     Input('factors-scatter-y', 'value'),
+     Input('cells-highlight-selection', 'value')])(update_factors)
 
 
 if __name__ == "__main__":

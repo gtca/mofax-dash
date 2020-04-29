@@ -98,6 +98,22 @@ html, body {
   height: auto;
 }
 
+#card-factors {
+  display: flex;
+  flex-direction: column;
+}
+#card-factors #plot-factors-scatter {
+  flex-grow: 1;
+}
+#card-factors #card-factors-selectors {
+  display: flex;
+  flex-direction: row;
+}
+#card-factors #card-factors-selectors > div {
+  flex: 1;
+  margin: 0.1em;
+}
+
 footer {
   text-align: center;
   margin: 2em 0;
