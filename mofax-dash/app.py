@@ -95,7 +95,7 @@ def update_k(model):
         global signif_k
         dim_k = model.nfactors
         signif_k = np.sum(model.get_r2().groupby("Factor").agg({"R2": "max"}).R2 > 0.01)
-        return make_card_children(dim_k, "factors", "where", signif_k, "factor", more="explain >1% variance")
+        return make_card_children(dim_k, "factors", "incl.", signif_k, "factor", more="with R2>1%")
 
 
 def update_factors(model):
