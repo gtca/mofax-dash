@@ -28,8 +28,9 @@ html, body {
 	// display: inline-block;
 	border-radius: 1em;
 	background: #ffffff;
-	box-shadow:  7px 7px 15px #cecece, 
-                 -7px -7px 15px #ffffff;
+	// box-shadow:  7px 7px 15px #cecece, 
+ //                 -7px -7px 15px #ffffff;
+ 	box-shadow:  0 5px 5px #cecece;
 	min-width: 100px;
 	min-height: 100px;
 
@@ -40,18 +41,29 @@ html, body {
 	// width: 200px;
 
 	.card-maintext {
-		font-size: 1.5em;
+		font-size: 1.8em;
 		font-family: 'Avenir Next', Avenir, 'Helvetica Neue', sans;
 		font-weight: 600;
 		color: #555555;
 	}
 	.card-subtext {
-		font-size: 1em;
+		font-weight: 100;
+		font-size: 1.2em;
 	}
 }
 
 .card-small {
 	width: 10%;
+}
+
+.settings-row {
+	display: flex;
+	flex-direction: row;
+	>div {
+		flex: 1;
+		margin: 1em;
+		margin-top: 0;
+	}
 }
 
 #overview {
@@ -83,7 +95,7 @@ html, body {
 	  	#card-settings {
 	  		grid-column: 1 / 7;
 	  		grid-row: 1 / 7;
-	  		background-color: #999999;
+	  		background-color: #f0f0f0;
 	  	}
 
 	  	#card-r2 {
@@ -112,4 +124,6 @@ footer {
 	a {
 		text-decoration: none;
 	}
+
+	margin: 2em 0;
 }
