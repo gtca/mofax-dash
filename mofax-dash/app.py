@@ -624,7 +624,6 @@ card_r2 = html.Div(id="card-r2", className="card", children=[])
 
 card_factors = html.Div(id="card-factors", className="card", children=[
     # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
-    html.Div(id="plot-factors-scatter", children=[]),
     html.Div(id="card-factors-selectors", children = [
         dcc.Dropdown(
           id="factors-scatter-x",
@@ -637,9 +636,9 @@ card_factors = html.Div(id="card-factors", className="card", children=[
               options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
               value="Factor2",
               multi=False,
-        )
-        ])
-    ])
+        )]),
+    html.Div(id="plot-factors-scatter", children=[]),
+])
 
 # card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
 card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[])
