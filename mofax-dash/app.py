@@ -19,6 +19,10 @@ import numpy as np
 import mofax as mfx
 
 
+import logging
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
+
+
 UPLOAD_DIRECTORY = ""
 
 
@@ -100,27 +104,64 @@ def update_k(model):
         return make_card_children(dim_k, "factors", "incl.", signif_k, "factor", more="with R2>1%")
 
 
+# Settings
+
+def update_feature_selection_prompt(value):
+    return f"with top {value} feature{'s' if value > 1 else ''} per factor"
+
+def update_feature_selection(n_clicks, factors, n_features):
+    return model.get_top_features(factors=factors, n_features=n_features)
+
+
+# Factors
+
 def update_factors(factor_x, factor_y, highlight):
+    logging.debug(f"Plotting factors scatter highlighting {highlight}")
     factors = list(set([factor_x, factor_y]))
     if model is not None:
-        df = model.get_factors(factors=factors, df=True).join(model.metadata)
+        df = model.fetch_values([factor_x, factor_y, highlight])
+
+        logging.debug("Got the dataframe to plot")
+
+        # Determine if it's a discrete or a continuous variable
+        highlight_discrete = None
+        if highlight is not None:
+            highlight_discrete = (df[highlight].dtype.name == "object") or (df[highlight].dtype.name == "category")
+            if not highlight_discrete:
+                df.sort_values(highlight, inplace=True)
+
         fig = dcc.Graph(id="factors-plot-scatter", figure={
             'data': [
-                {
+                go.Scattergl({
                     'x': df[factor_x],
                     'y': df[factor_y],
+                    'text': df.index.values,
                     'mode': 'markers',
                     'marker': {'size': 10, 'opacity': .5}
-                }
+                })
             ] if highlight is None else [
-                {
+                go.Scattergl({
                     'x': df[df[highlight] == i][factor_x],
                     'y': df[df[highlight] == i][factor_y],
-                    'text': df[df[highlight] == i][highlight],
+                    'text': df.index.values,
                     'mode': 'markers',
                     'marker': {'size': 10, 'opacity': .5},
                     'name': i
-                } for i in df[highlight].unique()
+                }) for i in df[highlight].unique()
+            ] if highlight_discrete else [
+                go.Scattergl({
+                    'x': df[factor_x],
+                    'y': df[factor_y],
+                    'text': df.index.values,
+                    'mode': 'markers',
+                    'marker': {'size': 10, 'opacity': .5, 
+                               'color': df[highlight],
+                               'colorbar': {'title': highlight},
+                               'colorscale': 'Viridis'},
+                    # 'colorbar': {
+                    #     'title': highlight
+                    # },
+                })
             ],
             'layout': {
                 'clickmode': 'event+select',
@@ -135,16 +176,12 @@ def update_factors(factor_x, factor_y, highlight):
                     'r': 10,
                     'b': 40,
                     't': 10,
-                }
+                },
+                'autosize': True,
             }
-        }, style={
-            'width': '100%',
-            'height': '100%',
-            'margin': 0,
-            'margin-bottom': 20,
-            'padding': 0,
         })
 
+        logging.debug("Returning dataframe for scatterplot...")
         return fig
 
 
@@ -156,15 +193,21 @@ def update_factors_violin(factors, highlight):
                   .rename_axis("Sample")\
                   .reset_index()\
                   .melt(var_name="Factor", value_name="Value", id_vars=["Sample"])
-        df = df.set_index("Sample").join(model.metadata).rename_axis("Sample").reset_index()
+
+        highlight_discrete = None
+        if highlight is not None:
+            df = df.set_index("Sample").join(model.fetch_values(highlight)).rename_axis("Sample").reset_index()
+            # Determine if it's a discrete or a continuous variable
+            highlight_discrete = (df[highlight].dtype.name == "object") or (df[highlight].dtype.name == "category")
+
         fig = dcc.Graph(id="factors-plot-violin", figure={
             'data': [
                 {   
                     'type': 'violin',
                     'x': df["Factor"],
                     'y': df["Value"],
-                    'text': df['Sample']
-                    # 'points': 'all'
+                    'text': df['Sample'],
+                    'points': False,
                 }
             ] if highlight is None else [
                 {
@@ -172,8 +215,24 @@ def update_factors_violin(factors, highlight):
                     'x': df[df[highlight] == i]["Factor"],
                     'y': df[df[highlight] == i]["Value"],
                     'text': df[df[highlight] == i][highlight],
-                    'name': i
+                    'points': False,
+                    'name': i,
                 } for i in df[highlight].unique()
+            ] if highlight_discrete else [
+                {
+                    'type': 'violin',
+                    'x': df["Factor"],
+                    'y': df["Value"],
+                    'text': df['Sample'],
+                    'points': False,
+                    'marker': {'size': 10, 'opacity': .5, 
+                               'color': df[highlight],
+                               'colorbar': {},
+                               'colorscale': 'Viridis'},
+                    'colorbar': {
+                        'title': highlight
+                    },
+                }
             ],
             'layout': {
                 'clickmode': 'event+select',
@@ -199,16 +258,17 @@ def update_factors_violin(factors, highlight):
         return fig
 
 
-# TODO: divide into update R2 heatmap and update selectors
-# see https://github.com/balajiciet/daypart/blob/master/daypart.py
 def update_r2(groups, views, factors):
     # Map -1 to None
     # This is due to inability to pass None as value
     if views is not None and (views == -1 or -1 in views): views = None
     if groups is not None and (groups == -1 or -1 in groups): groups = None
     if factors is not None and (factors == -1 or -1 in factors): factors = None
+    if factors is not None:
+        logging.debug(f"Plotting r2 for {len(factors)} factors...")
     if model is not None:
         df = model.get_r2(groups=groups, views=views, factors=factors)
+        logging.debug("Got the data frame")
         fig = dcc.Graph(id="r2-plot", figure={
             'data': [
                 go.Heatmap(
@@ -216,6 +276,7 @@ def update_r2(groups, views, factors):
                     y=df["Factor"],
                     z=df["R2"],
                     colorscale='Purples',
+                    colorbar={'title': "R2"},
                 )
             ],
             'layout': {
@@ -261,6 +322,199 @@ def update_r2(groups, views, factors):
                 ],
                 style={'width': '30%', 'float': 'right', 'display': 'inline-block'}),
             ])
+        logging.debug("Returning R2")
+        return [fig]
+
+# Weights
+
+def update_weights(views, factors, features, highlight):
+    # Map -1 to None
+    # This is due to inability to pass None as value
+    if views is not None and (views == -1 or -1 in views): views = None
+    if factors is not None and (factors == -1 or -1 in factors): factors = None
+    if factors is not None:
+        logging.debug(f"Plotting weights heatmap for {len(factors)} factors...")
+
+    if model is not None:
+        w = (
+            model.get_weights(views=views, factors=factors, df=True, absolute_values=False)
+            .rename_axis("Feature")
+            .reset_index()
+        )
+        # w = w[w.Feature.isin(features)]
+        wm = w.melt(id_vars="Feature", var_name="Factor", value_name="Weight")
+        wm["AbsWeight"] = abs(wm.Weight)
+        wm["Rank"] = wm.groupby("Factor")["Weight"].rank(ascending=False)
+
+        # If highlight is set, check if it's a feature
+        if highlight is not None:
+            highlight_feature = highlight in wm.Feature
+
+        logging.debug("Got the data frame for weights heatmap")
+
+        fig = dcc.Graph(id="weights-heatmap", figure={
+            'data': [
+                go.Scattergl(
+                    x=wm[wm.Factor == k]["Rank"],
+                    y=wm[wm.Factor == k]["Weight"],
+                    mode='markers',
+                    text=wm[wm.Factor == k]['Feature'],
+                    marker={'size': 8, 'opacity': .5, 
+                            'color': "#999999"},
+                    name=k,
+                ) for k in wm.Factor.unique()
+            ] + [
+                go.Scattergl(
+                    x=wm[(wm.Factor == k) & (wm.Feature.isin(features))]["Rank"],
+                    y=wm[(wm.Factor == k) & (wm.Feature.isin(features))]["Weight"],
+                    mode='markers',
+                    text=wm[(wm.Factor == k) & (wm.Feature.isin(features).values)]["Feature"],
+                    marker={'size': 8, 'opacity': 1., 'color': "#555555"},
+                    name=f"{k} highlight",
+                ) for k in wm.Factor.unique()
+            ] + [
+                go.Scattergl(
+                    x=wm[wm.Factor == k][wm.Feature == highlight]["Rank"],
+                    y=wm[wm.Factor == k][wm.Feature == highlight]["Weight"],
+                    mode='markers',
+                    text=wm[wm.Factor == k][wm.Feature == highlight]["Feature"],
+                    marker={'size': 16, 'opacity': 1., 'color': "#000000"},
+                    name=highlight,
+            ) for k in wm.Factor.unique()
+            ],
+            'layout': {
+                'clickmode': 'event+select',
+                'xaxis': {
+                    'title': ""
+                },
+                'yaxis': {
+                    'title': "Weight",
+                },
+                'margin': {
+                    'l': 50,
+                    'r': 20,
+                    'b': 20,
+                    't': 20,
+                }
+            }
+        }, style={
+            'width': '100%',
+            'height': '100%',
+            'margin': 0,
+            'padding': 0,
+        })
+
+        return [fig]
+
+
+
+def update_weights_heatmap(views, factors, features):
+    # Map -1 to None
+    # This is due to inability to pass None as value
+    if views is not None and (views == -1 or -1 in views): views = None
+    if factors is not None and (factors == -1 or -1 in factors): factors = None
+    if factors is not None:
+        logging.debug(f"Plotting weights heatmap for {len(factors)} factors...")
+    if model is not None:
+        w = (
+            model.get_weights(views=views, factors=factors, df=True, absolute_values=True)
+            .rename_axis("Feature")
+            .reset_index()
+        )
+        w = w[w.Feature.isin(features)]
+        wm = w.melt(id_vars="Feature", var_name="Factor", value_name="Weight")
+
+        logging.debug("Got the data frame for weights heatmap")
+
+        fig = dcc.Graph(id="weights-heatmap", figure={
+            'data': [
+                go.Heatmap(
+                    x=wm["Feature"],
+                    y=wm["Factor"],
+                    z=wm["Weight"],
+                    colorscale='Gray',
+                    reversescale=True,
+                    colorbar={'title': "Absolute<br>Weight"},
+                )
+            ],
+            'layout': {
+                'clickmode': 'event+select',
+                'xaxis': {
+                    'title': "",
+                    'tickangle': -90,
+                },
+                'yaxis': {
+                    'title': "",
+                },
+                'margin': {
+                    'l': 100,
+                    'r': 10,
+                    'b': 100,
+                    't': 10,
+                },
+                'tickangle': 90,
+            }
+        }, style={
+            'width': '100%',
+            'height': '100%',
+            'margin': 0,
+            'padding': 0,
+        })
+
+        return [fig]
+
+
+def update_data_heatmap(views, groups, features):
+    # Map -1 to None
+    # This is due to inability to pass None as value
+    if views is not None and (views == -1 or -1 in views): views = None
+    if groups is not None and (groups == -1 or -1 in groups): groups = None
+    if features is not None and (features == -1 or -1 in features): features = None
+    
+    if model is not None:
+        if features is None or len(features) == 0:
+            features = model.get_top_features(n_features=3)
+        df = model.get_data(groups=groups, features=features, df=True).rename_axis('Sample').reset_index()
+        print(df.shape)
+        df = df.melt(id_vars="Sample", var_name="Feature", value_name="Value")
+
+        logging.debug("Got the data frame for data heatmap")
+
+        fig = dcc.Graph(id="data-heatmap", figure={
+            'data': [
+                go.Heatmap(
+                    x=df["Sample"],
+                    y=df["Feature"],
+                    z=df["Value"],
+                    colorscale='Viridis',
+                    reversescale=False,
+                    colorbar={'title': "Value"},
+                )
+            ],
+            'layout': {
+                'clickmode': 'event+select',
+                'xaxis': {
+                    'title': "",
+                    'showticklabels': False,
+                    'ticks': "",
+                },
+                'yaxis': {
+                    'title': "",
+                },
+                'margin': {
+                    'l': 100,
+                    'r': 10,
+                    'b': 20,
+                    't': 10,
+                }
+            }
+        }, style={
+            'width': '100%',
+            'height': '100%',
+            'margin': 0,
+            'padding': 0,
+        })
+
         return [fig]
 
 
@@ -283,6 +537,34 @@ card_settings = html.Div(id="card-settings", className="card", children=[
                 multi=True,
                 ),
             ],
+        ),
+    ]),
+
+    html.Div(className="settings-row", children=[ 
+        html.Div(children=[
+            html.Span('Features contibution'),
+            dcc.Dropdown(
+                id="features-selection",
+                options=[{'label': "All", 'value': -1}] + [{'label': i, 'value': i} for v in model.features.values() for i in v],
+                value=model.get_top_features(n_features=3),
+                multi=True,
+                ),
+            html.Button('Update', id='feature-selection-prompt-button'),
+            html.Div(id="feature-selection-prompt-information"),
+            dcc.Slider(
+                id="feature-selection-prompt-slider",
+                min=1,
+                max=100,
+                value=3,
+                marks={
+                    1: {'label': '1'},
+                    5: {'label': '5'},
+                    10: {'label': '10'},
+                    20: {'label': '20'},
+                    50: {'label': '50'},
+                    100: {'label': '100'},
+                }
+            )],
         ),
     ]),
 
@@ -312,10 +594,12 @@ card_settings = html.Div(id="card-settings", className="card", children=[
 
     html.Div(className="settings-row", children=[
         html.Div(children=[
-            html.Span('Highlight cells'),
+            html.Span('Cells property'),
             dcc.Dropdown(
                 id="cells-highlight-selection",
-                options=[{'label': k, 'value': k} for k in model.metadata.columns.values],
+                options=[{'label': k, 'value': k} for k in model.metadata.columns.values] + 
+                        [{'label': i, 'value': i} for v in model.features.values() for i in v] + 
+                        [{'label': i, 'value': i} for i in [f"Factor{i+1}" for i in range(model.nfactors)]],
                 value=None,
                 multi=False,
                 ),
@@ -323,7 +607,7 @@ card_settings = html.Div(id="card-settings", className="card", children=[
         ),
 
         html.Div(children=[
-            html.Span('Highlight features'),
+            html.Span('Features property'),
             dcc.Dropdown(
                 id="features-highlight-selection",
                 options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
@@ -335,11 +619,12 @@ card_settings = html.Div(id="card-settings", className="card", children=[
     ]),
 ])
 
-card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
-
+# card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
+card_r2 = html.Div(id="card-r2", className="card", children=[])
 
 card_factors = html.Div(id="card-factors", className="card", children=[
-    html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
+    # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
+    html.Div(id="plot-factors-scatter", children=[]),
     html.Div(id="card-factors-selectors", children = [
         dcc.Dropdown(
           id="factors-scatter-x",
@@ -356,9 +641,23 @@ card_factors = html.Div(id="card-factors", className="card", children=[
         ])
     ])
 
-card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
+# card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
+card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[])
 
-cards = html.Div(id="cardboard", children=[card_dim_n, card_dim_d, card_dim_k, card_settings, card_r2, card_factors, card_factors_violin])
+
+# Weights
+card_weights = html.Div(id='card-weights', className="card", children=[])
+card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card", children=[])
+
+# Data
+card_data_heatmap = html.Div(id='card-data-heatmap', className="card", children=[])
+
+
+cards = html.Div(id="cardboard", children=[card_dim_n, card_dim_d, card_dim_k, 
+                                           card_settings, card_r2, 
+                                           card_factors, card_factors_violin,
+                                           card_weights, card_weights_heatmap,
+                                           card_data_heatmap])
 
 app.layout = html.Div(id='content', children=[
     html.Div(id='header', children=[
@@ -418,11 +717,25 @@ app.layout = html.Div(id='content', children=[
 
 # Callbacks
 
+# Settings
+
+app.callback(Output('feature-selection-prompt-information', 'children'),
+    [Input('feature-selection-prompt-slider', 'value')])(update_feature_selection_prompt)
+
+app.callback(Output('features-selection', 'value'),
+    [Input('feature-selection-prompt-button', 'n_clicks')],
+    [State('factors-selection', 'value'),
+     State('feature-selection-prompt-slider', 'value')])(update_feature_selection)
+
+
+# R2
+
 app.callback(Output('card-r2', 'children'),
     [Input('groups-selection', 'value'),
      Input('views-selection', 'value'),
      Input('factors-selection', 'value')])(update_r2)
 
+# Factors
 
 app.callback(Output('card-factors-violin', 'children'),
     [Input('factors-selection', 'value'),
@@ -433,6 +746,31 @@ app.callback(Output('plot-factors-scatter', 'children'),
     [Input('factors-scatter-x', 'value'),
      Input('factors-scatter-y', 'value'),
      Input('cells-highlight-selection', 'value')])(update_factors)
+
+
+# Weights
+
+app.callback(Output('card-weights', 'children'),
+    [Input('views-selection', 'value'),
+     Input('factors-selection', 'value'),
+     Input('features-selection', 'value'),
+     Input('cells-highlight-selection', 'value')])(update_weights)
+
+app.callback(Output('card-weights-heatmap', 'children'),
+    [Input('views-selection', 'value'),
+     Input('factors-selection', 'value'),
+     Input('features-selection', 'value')])(update_weights_heatmap)
+
+
+# Data
+
+app.callback(Output('card-data-heatmap', 'children'),
+    [Input('views-selection', 'value'),
+     Input('groups-selection', 'value'),
+     Input('features-selection', 'value')])(update_data_heatmap)
+
+
+
 
 
 if __name__ == "__main__":
