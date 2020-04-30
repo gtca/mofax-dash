@@ -55,6 +55,25 @@ html, body {
   margin: 1em;
   margin-top: 0;
 }
+.settings-row #features-selection {
+  max-height: 6vh;
+}
+.settings-row #features-selection .Select-multi-value-wrapper {
+  max-height: 6vh;
+  overflow-y: scroll;
+  vertical-align: middle;
+}
+.settings-row #feature-selection-prompt-button, .settings-row #feature-selection-prompt-information {
+  display: inline;
+  margin: 10px 0;
+}
+.settings-row #feature-selection-prompt-information {
+  margin-left: 10px;
+}
+.settings-row #feature-selection-prompt-slider {
+  padding: 0;
+  margin: 0;
+}
 
 #overview #cardboard {
   display: grid;
@@ -97,17 +116,39 @@ html, body {
   grid-row: 7/13;
   height: auto;
 }
+#overview #cardboard #card-weights {
+  grid-column: 1/7;
+  grid-row: 13/19;
+  height: auto;
+}
+#overview #cardboard #card-weights-heatmap {
+  grid-column: 7/13;
+  grid-row: 13/19;
+  height: auto;
+}
+#overview #cardboard #card-data-heatmap {
+  grid-column: 1/13;
+  grid-row: 19/25;
+  height: auto;
+}
 
 #card-factors {
   display: flex;
   flex-direction: column;
 }
 #card-factors #plot-factors-scatter {
-  flex-grow: 1;
+  flex: 1;
+}
+#card-factors #plot-factors-scatter #factors-plot-scatter {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 #card-factors #card-factors-selectors {
   display: flex;
   flex-direction: row;
+  margin-top: 20px;
 }
 #card-factors #card-factors-selectors > div {
   flex: 1;
