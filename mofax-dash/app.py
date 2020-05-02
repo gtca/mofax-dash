@@ -23,37 +23,7 @@ import logging
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 
 
-UPLOAD_DIRECTORY = ""
-
-
 external_stylesheets = ['assets/default.css']
-
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
-
-
-if __name__ == '__main__':
-    # Parse first agument as the model filename, if any
-    if len(argv) > 1:
-        filename = argv[1]
-        assert path.exists(filename), f"File {filename} does not exist"
-        
-        model = mfx.mofa_model(filename)
-        model_filename = filename
-
-        model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
-
-        # Number of factors explaining more than 1% of variance 
-        # to be reused later for better default view
-        signif_k = 0
-
-        # # Use ExitStack to defer model.close()
-        # with ExitStack() as stack:
-        #     stack.callback(model.close())
-    else:
-        print("Please provide an .hdf5 with a trained MOFA+ model")
-        exit(1)
-    
 
 
 def make_title(model_filename):
@@ -519,258 +489,285 @@ def update_data_heatmap(views, groups, features):
 
 
 
-card_dim_n = html.Div(id="card-dim-n", className="card card-small", children=update_n(model))
 
 
-card_dim_d = html.Div(id="card-dim-d", className="card card-small", children=update_d(model))
 
-card_dim_k = html.Div(id="card-dim-k", className="card card-small", children=update_k(model))
+if __name__ == '__main__':
+    # Parse first agument as the model filename, if any
+    if len(argv) < 1:
+        print("Please provide an .hdf5 with a trained MOFA+ model")
+        exit(1)
 
-card_settings = html.Div(id="card-settings", className="card", children=[
-    html.Div(className="settings-row", children=[ 
-        html.Div(children=[
-            html.Span('Factors'),
+    filename = argv[1]
+    assert path.exists(filename), f"File {filename} does not exist"
+    
+    model = mfx.mofa_model(filename)
+    model_filename = filename
+
+    model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
+
+    # Number of factors explaining more than 1% of variance 
+    # to be reused later for better default view
+    signif_k = 0
+
+    # # Use ExitStack to defer model.close()
+    # with ExitStack() as stack:
+    #     stack.callback(model.close())
+
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+    
+
+    card_dim_n = html.Div(id="card-dim-n", className="card card-small", children=update_n(model))
+
+
+    card_dim_d = html.Div(id="card-dim-d", className="card card-small", children=update_d(model))
+
+    card_dim_k = html.Div(id="card-dim-k", className="card card-small", children=update_k(model))
+
+    card_settings = html.Div(id="card-settings", className="card", children=[
+        html.Div(className="settings-row", children=[ 
+            html.Div(children=[
+                html.Span('Factors'),
+                dcc.Dropdown(
+                    id="factors-selection",
+                    options=[{'label': "All", 'value': -1}] + [{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
+                    value=-1 if signif_k == 0 else [f"Factor{i+1}" for i in range(signif_k)],
+                    multi=True,
+                    ),
+                ],
+            ),
+        ]),
+
+        html.Div(className="settings-row", children=[ 
+            html.Div(children=[
+                html.Span('Features contibution'),
+                dcc.Dropdown(
+                    id="features-selection",
+                    options=[{'label': "All", 'value': -1}] + [{'label': i, 'value': i} for v in model.features.values() for i in v],
+                    value=model.get_top_features(n_features=3),
+                    multi=True,
+                    ),
+                html.Button('Update', id='feature-selection-prompt-button'),
+                html.Div(id="feature-selection-prompt-information"),
+                dcc.Slider(
+                    id="feature-selection-prompt-slider",
+                    min=1,
+                    max=100,
+                    value=3,
+                    marks={
+                        1: {'label': '1'},
+                        5: {'label': '5'},
+                        10: {'label': '10'},
+                        20: {'label': '20'},
+                        50: {'label': '50'},
+                        100: {'label': '100'},
+                    }
+                )],
+            ),
+        ]),
+
+        html.Div(id="settings-subset", className="settings-row", children=[
+            html.Div(children=[
+                html.Span('Groups'),
+                dcc.Dropdown(
+                    id="groups-selection",
+                    options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
+                    value=-1,
+                    multi=True,
+                    ),
+                ],
+            ),
+
+            html.Div(children=[
+                html.Span('Views'),
+                dcc.Dropdown(
+                    id="views-selection",
+                    options=[{'label': "All", 'value': -1}] + [{'label': m, 'value': m} for m in model.views],
+                    value=-1,
+                    multi=True,
+                    ),
+                ],
+            ),
+        ]),
+
+        html.Div(className="settings-row", children=[
+            html.Div(children=[
+                html.Span('Cells property'),
+                dcc.Dropdown(
+                    id="cells-highlight-selection",
+                    options=[{'label': k, 'value': k} for k in model.metadata.columns.values] + 
+                            [{'label': i, 'value': i} for v in model.features.values() for i in v] + 
+                            [{'label': i, 'value': i} for i in [f"Factor{i+1}" for i in range(model.nfactors)]],
+                    value=None,
+                    multi=False,
+                    ),
+                ],
+            ),
+
+            html.Div(children=[
+                html.Span('Features property'),
+                dcc.Dropdown(
+                    id="features-highlight-selection",
+                    options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
+                    value=None,
+                    multi=False,
+                    ),
+                ],
+            ),
+        ]),
+    ])
+
+    # card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
+    card_r2 = html.Div(id="card-r2", className="card", children=[])
+
+    card_factors = html.Div(id="card-factors", className="card", children=[
+        # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
+        html.Div(id="card-factors-selectors", children = [
             dcc.Dropdown(
-                id="factors-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
-                value=-1 if signif_k == 0 else [f"Factor{i+1}" for i in range(signif_k)],
-                multi=True,
-                ),
-            ],
-        ),
-    ]),
-
-    html.Div(className="settings-row", children=[ 
-        html.Div(children=[
-            html.Span('Features contibution'),
-            dcc.Dropdown(
-                id="features-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': i, 'value': i} for v in model.features.values() for i in v],
-                value=model.get_top_features(n_features=3),
-                multi=True,
-                ),
-            html.Button('Update', id='feature-selection-prompt-button'),
-            html.Div(id="feature-selection-prompt-information"),
-            dcc.Slider(
-                id="feature-selection-prompt-slider",
-                min=1,
-                max=100,
-                value=3,
-                marks={
-                    1: {'label': '1'},
-                    5: {'label': '5'},
-                    10: {'label': '10'},
-                    20: {'label': '20'},
-                    50: {'label': '50'},
-                    100: {'label': '100'},
-                }
-            )],
-        ),
-    ]),
-
-    html.Div(id="settings-subset", className="settings-row", children=[
-        html.Div(children=[
-            html.Span('Groups'),
-            dcc.Dropdown(
-                id="groups-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
-                value=-1,
-                multi=True,
-                ),
-            ],
-        ),
-
-        html.Div(children=[
-            html.Span('Views'),
-            dcc.Dropdown(
-                id="views-selection",
-                options=[{'label': "All", 'value': -1}] + [{'label': m, 'value': m} for m in model.views],
-                value=-1,
-                multi=True,
-                ),
-            ],
-        ),
-    ]),
-
-    html.Div(className="settings-row", children=[
-        html.Div(children=[
-            html.Span('Cells property'),
-            dcc.Dropdown(
-                id="cells-highlight-selection",
-                options=[{'label': k, 'value': k} for k in model.metadata.columns.values] + 
-                        [{'label': i, 'value': i} for v in model.features.values() for i in v] + 
-                        [{'label': i, 'value': i} for i in [f"Factor{i+1}" for i in range(model.nfactors)]],
-                value=None,
-                multi=False,
-                ),
-            ],
-        ),
-
-        html.Div(children=[
-            html.Span('Features property'),
-            dcc.Dropdown(
-                id="features-highlight-selection",
-                options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
-                value=None,
-                multi=False,
-                ),
-            ],
-        ),
-    ]),
-])
-
-# card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
-card_r2 = html.Div(id="card-r2", className="card", children=[])
-
-card_factors = html.Div(id="card-factors", className="card", children=[
-    # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
-    html.Div(id="card-factors-selectors", children = [
-        dcc.Dropdown(
-          id="factors-scatter-x",
-          options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
-          value="Factor1",
-          multi=False,
-        ),
-        dcc.Dropdown(
-              id="factors-scatter-y",
+              id="factors-scatter-x",
               options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
-              value="Factor2",
+              value="Factor1",
               multi=False,
-        )]),
-    html.Div(id="plot-factors-scatter", children=[]),
-])
+            ),
+            dcc.Dropdown(
+                  id="factors-scatter-y",
+                  options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
+                  value="Factor2",
+                  multi=False,
+            )]),
+        html.Div(id="plot-factors-scatter", children=[]),
+    ])
 
-# card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
-card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[])
-
-
-# Weights
-card_weights = html.Div(id='card-weights', className="card", children=[])
-card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card", children=[])
-
-# Data
-card_data_heatmap = html.Div(id='card-data-heatmap', className="card", children=[])
+    # card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
+    card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[])
 
 
-cards = html.Div(id="cardboard", children=[card_dim_n, card_dim_d, card_dim_k, 
-                                           card_settings, card_r2, 
-                                           card_factors, card_factors_violin,
-                                           card_weights, card_weights_heatmap,
-                                           card_data_heatmap])
+    # Weights
+    card_weights = html.Div(id='card-weights', className="card", children=[])
+    card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card", children=[])
 
-app.layout = html.Div(id='content', children=[
-    html.Div(id='header', children=[
-        make_title(model_filename),
-
-        html.Div(id='header-subtitle', children='''
-            MOFA+ model exploration
-        '''),
-    ]),
-
-    html.Div(id='overview', children=[
-        cards
-    ]),
-
-    # html.Div(children=[
-        # dcc.Upload(
-        #     id='upload-data',
-        #     children=html.Div([
-        #         'Drag and Drop or ',
-        #         html.A('Select Files')
-        #     ]),
-        #     style={
-        #         'width': '100%',
-        #         'height': '60px',
-        #         'lineHeight': '60px',
-        #         'borderWidth': '1px',
-        #         'borderStyle': 'dashed',
-        #         'borderRadius': '5px',
-        #         'textAlign': 'center',
-        #         'margin': '10px'
-        #     },
-        #     multiple=False
-        # ),
-        # html.Div(id='output-data-upload', style={'display': 'none'}),
-    # ]),
-
-    html.Footer(children=[
-        html.Div(children=[
-            html.A('MOFA+', href='https://github.com/bioFAM/MOFA2', target='_blank'),
-            ' | ',
-            html.A('mofa×', href='https://github.com/gtca/mofax', target='_blank'),
-        ],
-        style={
-            'margin-top': '50px'
-        }),
-    ]),
-])
-
-# def save_file(name, content):
-#     """Decode and store a file uploaded with Plotly Dash."""
-#     data = content.encode("utf8").split(b";base64,")[1]
-#     with open(path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
-#         fp.write(base64.decodebytes(data))
+    # Data
+    card_data_heatmap = html.Div(id='card-data-heatmap', className="card", children=[])
 
 
+    cards = html.Div(id="cardboard", children=[card_dim_n, card_dim_d, card_dim_k, 
+                                               card_settings, card_r2, 
+                                               card_factors, card_factors_violin,
+                                               card_weights, card_weights_heatmap,
+                                               card_data_heatmap])
 
+    app.layout = html.Div(id='content', children=[
+        html.Div(id='header', children=[
+            make_title(model_filename),
 
-# Callbacks
+            html.Div(id='header-subtitle', children='''
+                MOFA+ model exploration
+            '''),
+        ]),
 
-# Settings
+        html.Div(id='overview', children=[
+            cards
+        ]),
 
-app.callback(Output('feature-selection-prompt-information', 'children'),
-    [Input('feature-selection-prompt-slider', 'value')])(update_feature_selection_prompt)
+        # html.Div(children=[
+            # dcc.Upload(
+            #     id='upload-data',
+            #     children=html.Div([
+            #         'Drag and Drop or ',
+            #         html.A('Select Files')
+            #     ]),
+            #     style={
+            #         'width': '100%',
+            #         'height': '60px',
+            #         'lineHeight': '60px',
+            #         'borderWidth': '1px',
+            #         'borderStyle': 'dashed',
+            #         'borderRadius': '5px',
+            #         'textAlign': 'center',
+            #         'margin': '10px'
+            #     },
+            #     multiple=False
+            # ),
+            # html.Div(id='output-data-upload', style={'display': 'none'}),
+        # ]),
 
-app.callback(Output('features-selection', 'value'),
-    [Input('feature-selection-prompt-button', 'n_clicks')],
-    [State('factors-selection', 'value'),
-     State('feature-selection-prompt-slider', 'value')])(update_feature_selection)
+        html.Footer(children=[
+            html.Div(children=[
+                html.A('MOFA+', href='https://github.com/bioFAM/MOFA2', target='_blank'),
+                ' | ',
+                html.A('mofa×', href='https://github.com/gtca/mofax', target='_blank'),
+            ],
+            style={
+                'margin-top': '50px'
+            }),
+        ]),
+    ])
 
-
-# R2
-
-app.callback(Output('card-r2', 'children'),
-    [Input('groups-selection', 'value'),
-     Input('views-selection', 'value'),
-     Input('factors-selection', 'value')])(update_r2)
-
-# Factors
-
-app.callback(Output('card-factors-violin', 'children'),
-    [Input('factors-selection', 'value'),
-     Input('cells-highlight-selection', 'value')])(update_factors_violin)
-
-
-app.callback(Output('plot-factors-scatter', 'children'),
-    [Input('factors-scatter-x', 'value'),
-     Input('factors-scatter-y', 'value'),
-     Input('cells-highlight-selection', 'value')])(update_factors)
-
-
-# Weights
-
-app.callback(Output('card-weights', 'children'),
-    [Input('views-selection', 'value'),
-     Input('factors-selection', 'value'),
-     Input('features-selection', 'value'),
-     Input('cells-highlight-selection', 'value')])(update_weights)
-
-app.callback(Output('card-weights-heatmap', 'children'),
-    [Input('views-selection', 'value'),
-     Input('factors-selection', 'value'),
-     Input('features-selection', 'value')])(update_weights_heatmap)
-
-
-# Data
-
-app.callback(Output('card-data-heatmap', 'children'),
-    [Input('views-selection', 'value'),
-     Input('groups-selection', 'value'),
-     Input('features-selection', 'value')])(update_data_heatmap)
+    # def save_file(name, content):
+    #     """Decode and store a file uploaded with Plotly Dash."""
+    #     data = content.encode("utf8").split(b";base64,")[1]
+    #     with open(path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
+    #         fp.write(base64.decodebytes(data))
 
 
 
 
+    # Callbacks
 
-if __name__ == "__main__":
+    # Settings
+
+    app.callback(Output('feature-selection-prompt-information', 'children'),
+        [Input('feature-selection-prompt-slider', 'value')])(update_feature_selection_prompt)
+
+    app.callback(Output('features-selection', 'value'),
+        [Input('feature-selection-prompt-button', 'n_clicks')],
+        [State('factors-selection', 'value'),
+         State('feature-selection-prompt-slider', 'value')])(update_feature_selection)
+
+
+    # R2
+
+    app.callback(Output('card-r2', 'children'),
+        [Input('groups-selection', 'value'),
+         Input('views-selection', 'value'),
+         Input('factors-selection', 'value')])(update_r2)
+
+    # Factors
+
+    app.callback(Output('card-factors-violin', 'children'),
+        [Input('factors-selection', 'value'),
+         Input('cells-highlight-selection', 'value')])(update_factors_violin)
+
+
+    app.callback(Output('plot-factors-scatter', 'children'),
+        [Input('factors-scatter-x', 'value'),
+         Input('factors-scatter-y', 'value'),
+         Input('cells-highlight-selection', 'value')])(update_factors)
+
+
+    # Weights
+
+    app.callback(Output('card-weights', 'children'),
+        [Input('views-selection', 'value'),
+         Input('factors-selection', 'value'),
+         Input('features-selection', 'value'),
+         Input('cells-highlight-selection', 'value')])(update_weights)
+
+    app.callback(Output('card-weights-heatmap', 'children'),
+        [Input('views-selection', 'value'),
+         Input('factors-selection', 'value'),
+         Input('features-selection', 'value')])(update_weights_heatmap)
+
+
+    # Data
+
+    app.callback(Output('card-data-heatmap', 'children'),
+        [Input('views-selection', 'value'),
+         Input('groups-selection', 'value'),
+         Input('features-selection', 'value')])(update_data_heatmap)
+
+
+    # Run the app
+
     app.run_server(debug=True)
