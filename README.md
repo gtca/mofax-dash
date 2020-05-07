@@ -19,3 +19,7 @@ Provide a trained MOFA+ model when calling `mofax` to open it in a web dashboard
 ```
 mofax mofa_model.hdf5
 ```
+
+## Notes
+
+To provide more efficiency when working with large datasets and large models, the data is not uploaded to the web browser (as in the [MOFA+ shiny app](https://github.com/gtca/mofaplus-shiny)), and a connection to the HDF5 file is created by the server instead. 
