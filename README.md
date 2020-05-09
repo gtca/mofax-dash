@@ -6,6 +6,8 @@ See [more on MOFA+ here](https://github.com/biofam/MOFA2/). See [more on Dash ap
 
 ## Getting started
 
+This library offers an interactive web dashboard to explore trained MOFA+ models and investigate latent factors and original features that drive variation in your data. Built on top of [mofax](https://github.com/gtca/mofax), it makes it possible to work with fairly large models, which is especially important for single-cell omics data with increasingly large numbers of cells being profiled.
+
 ### Installation
 
 ```
