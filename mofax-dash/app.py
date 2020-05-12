@@ -99,6 +99,9 @@ def update_factors(factor_x, factor_y, highlight):
             highlight_discrete = (df[highlight].dtype.name == "object") or (df[highlight].dtype.name == "category")
             if not highlight_discrete:
                 df.sort_values(highlight, inplace=True)
+        print(df.head())
+        print(highlight)
+        print(highlight_discrete)
 
         fig = dcc.Graph(id="factors-plot-scatter", figure={
             'data': [
@@ -503,15 +506,9 @@ if __name__ == '__main__':
     model = mfx.mofa_model(filename)
     model_filename = filename
 
-    # model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
-
     # Number of factors explaining more than 1% of variance 
     # to be reused later for better default view
     signif_k = 0
-
-    # # Use ExitStack to defer model.close()
-    # with ExitStack() as stack:
-    #     stack.callback(model.close())
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -619,11 +616,9 @@ if __name__ == '__main__':
 
     ])
 
-    # card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
     card_r2 = html.Div(id="card-r2", className="card", children=[])
 
     card_factors = html.Div(id="card-factors", className="card card-plot-container", children=[
-        # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
         html.Div(id="card-factors-selectors", className="card-plot-selectors", children = [
             dcc.Dropdown(
               id="factors-scatter-x",
@@ -647,24 +642,10 @@ if __name__ == '__main__':
     # Weights
 
     card_weights = html.Div(id='card-weights', className="card card-plot-container", children=[
-        # html.Div(id="card-weights-selectors", className="card-plot-selectors", children = [
-        #     dcc.Dropdown(
-        #       id="weights-scatter-view",
-        #       options=[{'label': m, 'value': m} for m in model.views],
-        #       value=model.views[0],
-        #       multi=False,
-        #     )]),
         html.Div(id="plot-weights-scatter", className="card-plot-central")
     ])
 
     card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card card-plot-container", children=[
-        # html.Div(id="card-weights-heatmap-selectors", className="card-plot-selectors", children=[
-        #     dcc.Dropdown(
-        #       id="weights-heatmap-view",
-        #       options=[{'label': m, 'value': m} for m in model.views],
-        #       value=model.views[0],
-        #       multi=False,
-        #     )]),
         html.Div(id="plot-weights-heatmap", className="card-plot-central")
     ])
 
@@ -691,28 +672,6 @@ if __name__ == '__main__':
             cards
         ]),
 
-        # html.Div(children=[
-            # dcc.Upload(
-            #     id='upload-data',
-            #     children=html.Div([
-            #         'Drag and Drop or ',
-            #         html.A('Select Files')
-            #     ]),
-            #     style={
-            #         'width': '100%',
-            #         'height': '60px',
-            #         'lineHeight': '60px',
-            #         'borderWidth': '1px',
-            #         'borderStyle': 'dashed',
-            #         'borderRadius': '5px',
-            #         'textAlign': 'center',
-            #         'margin': '10px'
-            #     },
-            #     multiple=False
-            # ),
-            # html.Div(id='output-data-upload', style={'display': 'none'}),
-        # ]),
-
         html.Footer(children=[
             html.Div(children=[
                 html.A('MOFA+', href='https://github.com/bioFAM/MOFA2', target='_blank'),
@@ -724,14 +683,6 @@ if __name__ == '__main__':
             }),
         ]),
     ])
-
-    # def save_file(name, content):
-    #     """Decode and store a file uploaded with Plotly Dash."""
-    #     data = content.encode("utf8").split(b";base64,")[1]
-    #     with open(path.join(UPLOAD_DIRECTORY, name), "wb") as fp:
-    #         fp.write(base64.decodebytes(data))
-
-
 
 
     # Callbacks
