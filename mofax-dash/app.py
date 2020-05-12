@@ -77,10 +77,10 @@ def update_k(model):
 # Settings
 
 def update_feature_selection_prompt(value):
-    return f"with top {value} feature{'s' if value > 1 else ''} per factor"
+    return f"with top {value} feature{'s' if value > 1 else ''} per factor in a selected view"
 
-def update_feature_selection(n_clicks, factors, n_features):
-    return model.get_top_features(factors=factors, n_features=n_features)
+def update_feature_selection(n_clicks, view, factors, n_features):
+    return model.get_top_features(factors=factors, views=[view], n_features=n_features)
 
 
 # Factors
@@ -228,10 +228,10 @@ def update_factors_violin(factors, highlight):
         return fig
 
 
-def update_r2(groups, views, factors):
+def update_r2(groups, view, factors):
     # Map -1 to None
     # This is due to inability to pass None as value
-    if views is not None and (views == -1 or -1 in views): views = None
+    if view is not None: views = [view]
     if groups is not None and (groups == -1 or -1 in groups): groups = None
     if factors is not None and (factors == -1 or -1 in factors): factors = None
     if factors is not None:
@@ -257,11 +257,12 @@ def update_r2(groups, views, factors):
                 'yaxis': {
                     'title': "",
                 },
+                'title': ' '.join(["Variance explained in", view]),
                 'margin': {
                     'l': 100,
                     'r': 10,
                     'b': 50,
-                    't': 10,
+                    't': 30,
                 }
             }
         }, style={
@@ -297,10 +298,10 @@ def update_r2(groups, views, factors):
 
 # Weights
 
-def update_weights(views, factors, features, highlight):
+def update_weights(view, factors, features, highlight):
     # Map -1 to None
     # This is due to inability to pass None as value
-    if views is not None and (views == -1 or -1 in views): views = None
+    if view is not None: views = [view]
     if factors is not None and (factors == -1 or -1 in factors): factors = None
     if factors is not None:
         logging.debug(f"Plotting weights heatmap for {len(factors)} factors...")
@@ -320,9 +321,7 @@ def update_weights(views, factors, features, highlight):
         if highlight is not None:
             highlight_feature = highlight in wm.Feature
 
-        logging.debug("Got the data frame for weights heatmap")
-
-        fig = dcc.Graph(id="weights-heatmap", figure={
+        fig = dcc.Graph(id="weights-plot-scatter", figure={
             'data': [
                 go.Scattergl(
                     x=wm[wm.Factor == k]["Rank"],
@@ -358,7 +357,7 @@ def update_weights(views, factors, features, highlight):
                     'title': ""
                 },
                 'yaxis': {
-                    'title': "Weight",
+                    'title': ' '.join([view, "weight"]),
                 },
                 'margin': {
                     'l': 50,
@@ -378,10 +377,10 @@ def update_weights(views, factors, features, highlight):
 
 
 
-def update_weights_heatmap(views, factors, features):
+def update_weights_heatmap(view, factors, features):
     # Map -1 to None
     # This is due to inability to pass None as value
-    if views is not None and (views == -1 or -1 in views): views = None
+    if view is not None: views = [view]
     if factors is not None and (factors == -1 or -1 in factors): factors = None
     if factors is not None:
         logging.debug(f"Plotting weights heatmap for {len(factors)} factors...")
@@ -414,7 +413,7 @@ def update_weights_heatmap(views, factors, features):
                     'tickangle': -90,
                 },
                 'yaxis': {
-                    'title': "",
+                    'title': ' '.join([view, "weight"]),
                 },
                 'margin': {
                     'l': 100,
@@ -434,10 +433,10 @@ def update_weights_heatmap(views, factors, features):
         return [fig]
 
 
-def update_data_heatmap(views, groups, features):
+def update_data_heatmap(view, groups, features):
     # Map -1 to None
     # This is due to inability to pass None as value
-    if views is not None and (views == -1 or -1 in views): views = None
+    if view is not None: views = [view]
     if groups is not None and (groups == -1 or -1 in groups): groups = None
     if features is not None and (features == -1 or -1 in features): features = None
     
@@ -504,7 +503,7 @@ if __name__ == '__main__':
     model = mfx.mofa_model(filename)
     model_filename = filename
 
-    model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
+    # model.metadata["stage"] = [i.split('_')[1].rstrip("0123456789") for i in model.metadata.index.values]
 
     # Number of factors explaining more than 1% of variance 
     # to be reused later for better default view
@@ -526,6 +525,57 @@ if __name__ == '__main__':
     card_dim_k = html.Div(id="card-dim-k", className="card card-small", children=update_k(model))
 
     card_settings = html.Div(id="card-settings", className="card", children=[
+
+        html.Div(id="settings-subset", className="settings-row", children=[
+            html.Div(children=[
+                html.Span('Groups'),
+                dcc.Dropdown(
+                    id="groups-selection",
+                    options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
+                    value=-1,
+                    multi=True,
+                    ),
+                ],
+            ),
+
+            html.Div(children=[
+                html.Span('View'),
+                dcc.Dropdown(
+                    id="view-selection",
+                    options=[{'label': m, 'value': m} for m in model.views],
+                    value=model.views[0],
+                    multi=False,
+                    ),
+                ],
+            ),
+        ]),
+
+        html.Div(className="settings-row", children=[
+            html.Div(children=[
+                html.Span('Cells property'),
+                dcc.Dropdown(
+                    id="cells-highlight-selection",
+                    options=[{'label': k, 'value': k} for k in model.metadata.columns.values] + 
+                            [{'label': i, 'value': i} for v in model.features.values() for i in v] + 
+                            [{'label': i, 'value': i} for i in [f"Factor{i+1}" for i in range(model.nfactors)]],
+                    value=None,
+                    multi=False,
+                    ),
+                ],
+            ),
+
+            html.Div(children=[
+                html.Span('Features property'),
+                dcc.Dropdown(
+                    id="features-highlight-selection",
+                    options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
+                    value=None,
+                    multi=False,
+                    ),
+                ],
+            ),
+        ]),
+
         html.Div(className="settings-row", children=[ 
             html.Div(children=[
                 html.Span('Factors'),
@@ -567,63 +617,14 @@ if __name__ == '__main__':
             ),
         ]),
 
-        html.Div(id="settings-subset", className="settings-row", children=[
-            html.Div(children=[
-                html.Span('Groups'),
-                dcc.Dropdown(
-                    id="groups-selection",
-                    options=[{'label': "All", 'value': -1}] + [{'label': g, 'value': g} for g in model.groups],
-                    value=-1,
-                    multi=True,
-                    ),
-                ],
-            ),
-
-            html.Div(children=[
-                html.Span('Views'),
-                dcc.Dropdown(
-                    id="views-selection",
-                    options=[{'label': "All", 'value': -1}] + [{'label': m, 'value': m} for m in model.views],
-                    value=-1,
-                    multi=True,
-                    ),
-                ],
-            ),
-        ]),
-
-        html.Div(className="settings-row", children=[
-            html.Div(children=[
-                html.Span('Cells property'),
-                dcc.Dropdown(
-                    id="cells-highlight-selection",
-                    options=[{'label': k, 'value': k} for k in model.metadata.columns.values] + 
-                            [{'label': i, 'value': i} for v in model.features.values() for i in v] + 
-                            [{'label': i, 'value': i} for i in [f"Factor{i+1}" for i in range(model.nfactors)]],
-                    value=None,
-                    multi=False,
-                    ),
-                ],
-            ),
-
-            html.Div(children=[
-                html.Span('Features property'),
-                dcc.Dropdown(
-                    id="features-highlight-selection",
-                    options=[{'label': k, 'value': k} for k in model.features_metadata.columns.values],
-                    value=None,
-                    multi=False,
-                    ),
-                ],
-            ),
-        ]),
     ])
 
     # card_r2 = html.Div(id="card-r2", className="card", children=update_r2(None, None, None))
     card_r2 = html.Div(id="card-r2", className="card", children=[])
 
-    card_factors = html.Div(id="card-factors", className="card", children=[
+    card_factors = html.Div(id="card-factors", className="card card-plot-container", children=[
         # html.Div(id="plot-factors-scatter", children=[update_factors("Factor1", "Factor2", None)]),
-        html.Div(id="card-factors-selectors", children = [
+        html.Div(id="card-factors-selectors", className="card-plot-selectors", children = [
             dcc.Dropdown(
               id="factors-scatter-x",
               options=[{'label': k, 'value': k} for k in [f"Factor{i+1}" for i in range(model.nfactors)]],
@@ -636,7 +637,7 @@ if __name__ == '__main__':
                   value="Factor2",
                   multi=False,
             )]),
-        html.Div(id="plot-factors-scatter", children=[]),
+        html.Div(id="plot-factors-scatter", className="card-plot-central")
     ])
 
     # card_factors_violin = html.Div(id="card-factors-violin", className="card", children=[update_factors_violin(None, None)])
@@ -644,8 +645,28 @@ if __name__ == '__main__':
 
 
     # Weights
-    card_weights = html.Div(id='card-weights', className="card", children=[])
-    card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card", children=[])
+
+    card_weights = html.Div(id='card-weights', className="card card-plot-container", children=[
+        # html.Div(id="card-weights-selectors", className="card-plot-selectors", children = [
+        #     dcc.Dropdown(
+        #       id="weights-scatter-view",
+        #       options=[{'label': m, 'value': m} for m in model.views],
+        #       value=model.views[0],
+        #       multi=False,
+        #     )]),
+        html.Div(id="plot-weights-scatter", className="card-plot-central")
+    ])
+
+    card_weights_heatmap = html.Div(id='card-weights-heatmap', className="card card-plot-container", children=[
+        # html.Div(id="card-weights-heatmap-selectors", className="card-plot-selectors", children=[
+        #     dcc.Dropdown(
+        #       id="weights-heatmap-view",
+        #       options=[{'label': m, 'value': m} for m in model.views],
+        #       value=model.views[0],
+        #       multi=False,
+        #     )]),
+        html.Div(id="plot-weights-heatmap", className="card-plot-central")
+    ])
 
     # Data
     card_data_heatmap = html.Div(id='card-data-heatmap', className="card", children=[])
@@ -721,7 +742,8 @@ if __name__ == '__main__':
         [Input('feature-selection-prompt-slider', 'value')])(update_feature_selection_prompt)
 
     app.callback(Output('features-selection', 'value'),
-        [Input('feature-selection-prompt-button', 'n_clicks')],
+        [Input('feature-selection-prompt-button', 'n_clicks'),
+         Input('view-selection', 'value')],
         [State('factors-selection', 'value'),
          State('feature-selection-prompt-slider', 'value')])(update_feature_selection)
 
@@ -730,7 +752,7 @@ if __name__ == '__main__':
 
     app.callback(Output('card-r2', 'children'),
         [Input('groups-selection', 'value'),
-         Input('views-selection', 'value'),
+         Input('view-selection', 'value'),
          Input('factors-selection', 'value')])(update_r2)
 
     # Factors
@@ -748,14 +770,14 @@ if __name__ == '__main__':
 
     # Weights
 
-    app.callback(Output('card-weights', 'children'),
-        [Input('views-selection', 'value'),
+    app.callback(Output('plot-weights-scatter', 'children'),
+        [Input('view-selection', 'value'),
          Input('factors-selection', 'value'),
          Input('features-selection', 'value'),
          Input('cells-highlight-selection', 'value')])(update_weights)
 
-    app.callback(Output('card-weights-heatmap', 'children'),
-        [Input('views-selection', 'value'),
+    app.callback(Output('plot-weights-heatmap', 'children'),
+        [Input('view-selection', 'value'),
          Input('factors-selection', 'value'),
          Input('features-selection', 'value')])(update_weights_heatmap)
 
@@ -763,7 +785,7 @@ if __name__ == '__main__':
     # Data
 
     app.callback(Output('card-data-heatmap', 'children'),
-        [Input('views-selection', 'value'),
+        [Input('view-selection', 'value'),
          Input('groups-selection', 'value'),
          Input('features-selection', 'value')])(update_data_heatmap)
 

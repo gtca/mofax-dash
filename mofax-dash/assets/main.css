@@ -132,25 +132,27 @@ html, body {
   height: auto;
 }
 
-#card-factors {
+.card-plot-container {
   display: flex;
   flex-direction: column;
 }
-#card-factors #plot-factors-scatter {
+.card-plot-container .card-plot-central {
   flex: 1;
 }
-#card-factors #plot-factors-scatter #factors-plot-scatter {
+.card-plot-container .card-plot-central #weights-plot-scatter,
+.card-plot-container .card-plot-central #factors-plot-scatter,
+.card-plot-container .card-plot-central #weights-plot-heatmap {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
 }
-#card-factors #card-factors-selectors {
+.card-plot-container .card-plot-selectors {
   display: flex;
   flex-direction: row;
   margin-bottom: 20px;
 }
-#card-factors #card-factors-selectors > div {
+.card-plot-container .card-plot-selectors > div {
   flex: 1;
   margin: 0.1em;
 }
