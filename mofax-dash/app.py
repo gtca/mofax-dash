@@ -99,9 +99,6 @@ def update_factors(factor_x, factor_y, highlight):
             highlight_discrete = (df[highlight].dtype.name == "object") or (df[highlight].dtype.name == "category")
             if not highlight_discrete:
                 df.sort_values(highlight, inplace=True)
-        print(df.head())
-        print(highlight)
-        print(highlight_discrete)
 
         fig = dcc.Graph(id="factors-plot-scatter", figure={
             'data': [
@@ -496,8 +493,8 @@ def update_data_heatmap(view, groups, features):
 
 if __name__ == '__main__':
     # Parse first agument as the model filename, if any
-    if len(argv) < 1:
-        print("Please provide an .hdf5 with a trained MOFA+ model")
+    if len(argv) < 2:
+        print("Please provide an HDF5 file with a trained MOFA+ model as a first argument")
         exit(1)
 
     filename = argv[1]
